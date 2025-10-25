@@ -49,8 +49,8 @@ Follow these steps to get the project running on your local machine.
 
 1.  **Clone or Download the Project:**
     ```bash
-    git clone https://github.com/anwylrony/webvulnx-pro.git
-    cd webvulnx-pro
+    git clone https://github.com/anwylrony/WebVulnX-Pro.git
+    cd WebVulnX-Pro
     ```
 
 2.  **Create and Activate a Virtual Environment (Recommended):**
