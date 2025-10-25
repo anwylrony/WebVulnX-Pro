@@ -1,0 +1,9 @@
+# Core Scanning Dependencies
+requests>=2.28.0
+beautifulsoup4>=4.11.0
+playwright>=1.40.0
+
+# Web Application Dependencies
+Flask>=2.3.0
+Flask-SocketIO>=5.3.0
+eventlet>=0.33.0 # Or gevent, for WebSocket performance
