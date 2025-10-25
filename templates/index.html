@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebVulnX Pro - Web Scanner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <style>
+        body { background-color: #0a4e0a; }
+        .bg-main { background-color: #0a4e0a; }
+        .bg-panel { background-color: #1a5e1a; }
+        .text-accent { color: #f14545; }
+        .bg-accent { background-color: #f14545; }
+        .border-accent { border-color: #f14545; }
+        .hover-bg-accent:hover { background-color: #d63838; }
+        #log-container::-webkit-scrollbar { width: 8px; }
+        #log-container::-webkit-scrollbar-track { background: #1a5e1a; }
+        #log-container::-webkit-scrollbar-thumb { background: #4b7c4b; border-radius: 4px; }
+        .log-info { color: #9ca3af; }
+        .log-success { color: #34d399; }
+        .log-warning { color: #fbbf24; }
+        .log-error { color: #f87171; }
+        .flag-logo {
+            width: 30px; height: 20px; background-color: #006A4E; position: relative; display: inline-block;
+            margin-right: 10px; vertical-align: middle; border-radius: 2px;
+        }
+        .flag-logo::before {
+            content: ''; position: absolute; width: 12px; height: 12px; background-color: #F42A41;
+            border-radius: 50%; top: 50%; left: 40%; transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+<body class="bg-main text-gray-100 font-sans">
+    <div class="container mx-auto p-6 max-w-7xl">
+        <header class="text-center mb-8">
+            <h1 class="text-5xl font-bold text-accent flex items-center justify-center">
+                <span class="flag-logo"></span>WebVulnX Pro
+            </h1>
+            <p class="text-gray-400 mt-2">Advanced Automated Vulnerability Discovery</p>
+        </header>
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <section class="lg:col-span-1 bg-panel p-6 rounded-lg shadow-lg">
+                <h2 class="text-2xl font-semibold mb-4 text-accent">Scan Configuration</h2>
+                <form id="scan-form" class="space-y-4">
+                    <div>
+                        <label for="url" class="block text-sm font-medium text-gray-300">Target Host / URL</label>
+                        <input type="text" id="url" name="url" required class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-accent focus:border-accent" placeholder="192.168.1.1 or http://testphp.vulnweb.com">
+                    </div>
+                    <div>
+                        <label for="depth" class="block text-sm font-medium text-gray-300">Web Crawl Depth</label>
+                        <input type="number" id="depth" name="depth" value="2" min="1" max="5" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-accent focus:border-accent">
+                    </div>
+                    <div class="flex space-x-3">
+                        <button type="submit" id="start-btn" class="flex-1 bg-accent hover-bg-accent text-white font-bold py-2 px-4 rounded transition duration-300">Start Scan</button>
+                        <button type="button" id="stop-btn" disabled class="flex-1 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-700 text-white font-bold py-2 px-4 rounded transition duration-300">Stop Scan</button>
+                    </div>
+                </form>
+                <div class="mt-6 p-4 bg-gray-800 rounded-lg">
+                    <h3 class="text-lg font-semibold text-accent mb-3">Download Report</h3>
+                    <div class="space-y-2">
+                        <a href="/download/pdf" id="download-pdf-btn" class="block w-full text-center bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded transition duration-300 disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>📄 Download as PDF</a>
+                        <a href="/download/csv" id="download-csv-btn" class="block w-full text-center bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded transition duration-300 disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>📊 Download as CSV</a>
+                    </div>
+                </div>
+            </section>
+            <section class="lg:col-span-2 space-y-6">
+                <div class="bg-panel p-6 rounded-lg shadow-lg h-96 flex flex-col">
+                    <h2 class="text-2xl font-semibold mb-4 text-accent">Live Scan Log</h2>
+                    <div id="log-container" class="flex-grow overflow-y-auto bg-black p-4 rounded font-mono text-sm"></div>
+                </div>
+                <div class="bg-panel p-6 rounded-lg shadow-lg">
+                    <h2 class="text-2xl font-semibold mb-4 text-red-400">Vulnerabilities Found</h2>
+                    <div id="vulnerabilities-container" class="space-y-3"><p class="text-gray-500">No vulnerabilities found yet. Start a scan to see results.</p></div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const socket = io(); const form = document.getElementById('scan-form'); const startBtn = document.getElementById('start-btn'); const stopBtn = document.getElementById('stop-btn'); const logContainer = document.getElementById('log-container'); const vulnContainer = document.getElementById('vulnerabilities-container'); const downloadPdfBtn = document.getElementById('download-pdf-btn'); const downloadCsvBtn = document.getElementById('download-csv-btn');
+            const setButtonsState = (scanning) => { startBtn.disabled = scanning; stopBtn.disabled = !scanning; form.querySelectorAll('input, button').forEach(el => el.disabled = scanning); downloadPdfBtn.disabled = scanning; downloadCsvBtn.disabled = scanning; };
+            const addLog = (message, type = 'info') => { const logEntry = document.createElement('div'); logEntry.className = `log-${type}`; logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`; logContainer.appendChild(logEntry); logContainer.scrollTop = logContainer.scrollHeight; };
+            const addVulnerability = (vuln) => { if (vulnContainer.querySelector('.text-gray-500')) { vulnContainer.innerHTML = ''; } const vulnCard = document.createElement('div'); vulnCard.className = 'bg-red-900 border border-red-700 p-4 rounded-lg'; vulnCard.innerHTML = `<h3 class="font-bold text-lg text-red-300">${vuln.type}</h3><p class="text-sm"><strong>URL:</strong> <span class="font-mono">${vuln.url}</span></p><p class="text-sm"><strong>Parameter:</strong> ${vuln.param}</p><p class="text-sm"><strong>Payload:</strong> <span class="font-mono text-green-400">${vuln.payload}</span></p>`; vulnContainer.prepend(vulnCard); };
+            socket.on('connect', () => addLog('Connected to server.', 'success')); socket.on('disconnect', () => addLog('Disconnected from server.', 'error')); socket.on('log', (data) => addLog(data.message, data.type)); socket.on('vulnerability_found', (vuln) => { addVulnerability(vuln); addLog(`VULNERABILITY FOUND: ${vuln.type} at ${vuln.url}`, 'error'); });
+            socket.on('scan_complete', (data) => { addLog('Scan finished successfully.', 'success'); setButtonsState(false); if (data.vulnerabilities.length === 0) { vulnContainer.innerHTML = '<p class="text-gray-500">Scan complete. No critical vulnerabilities found.</p>'; } });
+            form.addEventListener('submit', (e) => { e.preventDefault(); setButtonsState(true); logContainer.innerHTML = ''; vulnContainer.innerHTML = '<p class="text-gray-500">Scanning in progress...</p>'; const formData = new FormData(form); const data = Object.fromEntries(formData.entries()); socket.emit('start_scan', data); });
+            stopBtn.addEventListener('click', () => { socket.emit('stop_scan'); addLog('Requesting to stop the scan...', 'warning'); });
+        });
+    </script>
+</body>
+</html>
